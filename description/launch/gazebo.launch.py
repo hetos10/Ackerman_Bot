@@ -1,3 +1,9 @@
+from launch import LaunchDescription
+from launch.actions import ExecuteProcess
+from launch_ros.actions import Node
+from ament_index_python.packages import get_package_share_directory
+import os
+import xacro
 import os
 from os import pathsep
 from pathlib import Path
@@ -12,86 +18,57 @@ from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
 def generate_launch_description():
-    bot_description = get_package_share_directory("description")
 
-    model_arg = DeclareLaunchArgument(
-        name="model", default_value=os.path.join(
-                bot_description, "urdf", "ack.urdf.xacro"
-            ),
-        description="Absolute path to robot urdf file"
+    pkg_path = get_package_share_directory('description')
+
+    world_file = os.path.join(
+        pkg_path,
+        'worlds',
+        'shapes.sdf'
     )
 
-    world_name_arg = DeclareLaunchArgument(name="world_name", default_value="empty_table")
-
-    world_path = PathJoinSubstitution([
-            bot_description,
-            "worlds",
-            PythonExpression(expression=["'", LaunchConfiguration("world_name"), "'", " + '.world'"])
-        ]
+    xacro_file = os.path.join(
+        pkg_path,
+        'urdf',
+        'ack.urdf.xacro'
     )
 
-    model_path = str(Path(bot_description).parent.resolve())
-    model_path += pathsep + os.path.join(get_package_share_directory("bot_description"), 'models')
+    robot_description_config = xacro.process_file(xacro_file)
 
-    gazebo_resource_path = SetEnvironmentVariable(
-        "GZ_SIM_RESOURCE_PATH",
-        model_path
-    )
+    robot_description = {
+        'robot_description': robot_description_config.toxml()
+    }
 
-    robot_description = ParameterValue(Command([
-            "xacro ",
-            LaunchConfiguration("model"),
-            " is_sim:=True",
-        ]),
-        value_type=str
-    )
+    return LaunchDescription([
 
-    robot_state_publisher_node = Node(
-        package="robot_state_publisher",
-        executable="robot_state_publisher",
-        parameters=[{"robot_description": robot_description,
-                     "use_sim_time": True}]
-    )
+        
 
-    gazebo = IncludeLaunchDescription(
+        IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([os.path.join(
                     get_package_share_directory("ros_gz_sim"), "launch"), "/gz_sim.launch.py"]),
                 launch_arguments={
-                    "gz_args": PythonExpression(["'", world_path, " -v 4 -r'"])
+                    "gz_args": PythonExpression(["'", world_file, " -v 4 -r'"])
                 }.items()
-             )
+             ),
 
-    gz_spawn_entity = Node(
-        package="ros_gz_sim",
-        executable="create",
-        output="screen",
-        arguments=[
-            "-topic", "robot_description",
-            "-name", "bot",
-            "-x", "0.0",  
-            "-y", "0.0",  
-            "-z", "2.0",  
-            "-R", "0.0", 
-            "-P", "0.0",
-            "-Y", "0.0", # Yaw (in radians, e.g., 1.57 for 90 degrees)
-        ],
-    )
+        Node(
+            package='robot_state_publisher',
+            executable='robot_state_publisher',
+            parameters=[robot_description],
+            output='screen'
+        ),
 
-    gz_ros2_bridge = Node(
-        package="ros_gz_bridge",
-        executable="parameter_bridge",
-        arguments=[
-            "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock",
-            "/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
-        ],
-    )
+        Node(
+            package='ros_gz_sim',
+            executable='create',
+            arguments=[
+                '-topic', 'robot_description',
+                '-name', 'ackerman_robot',
+                '-x', '0.0',
+                '-y', '0.0',
+                '-z', '0.5'
+            ],
+            output='screen'
+        )
 
-    return LaunchDescription([
-        model_arg,
-        world_name_arg,
-        gazebo_resource_path,
-        robot_state_publisher_node,
-        gazebo,
-        gz_spawn_entity,
-        gz_ros2_bridge,
     ])
