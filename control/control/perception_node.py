@@ -92,7 +92,32 @@ class SimpleVisionNode(Node):
                 
                 # KEY DETECTION: Check if it's a box (4 corners + roughly square)
                 if len(approx) == 4:
-                    # Box should be roughly square (0.6 to 1.4 aspect ratio - more lenient)
+
+                    pts = approx.reshape(4, 2)
+
+                    side_lengths = []
+
+                    for j in range(4):
+
+                        p1 = pts[j]
+                        p2 = pts[(j + 1) % 4]
+
+                        distance = np.linalg.norm(p1 - p2)
+
+                        side_lengths.append(distance)
+
+                    avg_side = np.mean(side_lengths)
+
+                    side_tolerance = 0.20 * avg_side
+
+                    square_condition = all(
+                        abs(side - avg_side) < side_tolerance
+                        for side in side_lengths
+                    )
+
+                    if not square_condition:
+                        continue
+
                     if 0.6 <= aspect_ratio <= 1.4:
                         
                         # Calculate centroid
