@@ -1,12 +1,17 @@
 import os
+from os import pathsep
+from pathlib import Path
+from ament_index_python.packages import get_package_share_directory
 import xacro
 
 from launch import LaunchDescription
-from launch.actions import ExecuteProcess, DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, SetEnvironmentVariable
+from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution, PythonExpression
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 
-from ament_index_python.packages import get_package_share_directory
+from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
+
 
 def generate_launch_description():
 
@@ -14,15 +19,16 @@ def generate_launch_description():
 
     world_name_arg = DeclareLaunchArgument(
         "world_name",
-        default_value="shapes.sdf"
+        default_value="shapes"
     )
 
     description_pkg = get_package_share_directory("description")
 
-    world_file = os.path.join(
-        description_pkg,
-        "worlds",
-        world_name.perform({})
+    world_path = PathJoinSubstitution([
+            description_pkg,
+            "worlds",
+            PythonExpression(expression=["'", LaunchConfiguration("world_name"), "'", " + '.sdf'"])
+        ]
     )
 
     xacro_file = os.path.join(
@@ -38,20 +44,18 @@ def generate_launch_description():
     }
 
     bridge_file = os.path.join(
-        get_package_share_directory("bringup"),
+        get_package_share_directory("description"),
         "config",
         "bridge.yaml"
     )
 
-    gazebo = ExecuteProcess(
-        cmd=[
-            "gz",
-            "sim",
-            "-r",
-            world_file
-        ],
-        output="screen"
-    )
+    gazebo = IncludeLaunchDescription(
+                PythonLaunchDescriptionSource([os.path.join(
+                    get_package_share_directory("ros_gz_sim"), "launch"), "/gz_sim.launch.py"]),
+                launch_arguments={
+                    "gz_args": PythonExpression(["'", world_path, " -v 4 -r'"])
+                }.items()
+             )
 
     robot_state_publisher = Node(
         package="robot_state_publisher",

@@ -7,9 +7,8 @@ from launch.substitutions import LaunchConfiguration
 
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 
-from launch_ros.actions import Node
-
 from ament_index_python.packages import get_package_share_directory
+
 
 def generate_launch_description():
 
@@ -17,13 +16,13 @@ def generate_launch_description():
 
     world_name_arg = DeclareLaunchArgument(
         "world_name",
-        default_value="shapes.sdf"
+        default_value="shapes"
     )
 
-    gazebo = IncludeLaunchDescription(
+    gazebo_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(
-                get_package_share_directory("bringup"),
+                get_package_share_directory("description"),
                 "launch",
                 "gazebo.launch.py"
             )
@@ -33,17 +32,27 @@ def generate_launch_description():
         }.items()
     )
 
-    controllers = IncludeLaunchDescription(
+    display_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(
-                get_package_share_directory("bringup"),
+                get_package_share_directory("description"),
                 "launch",
-                "controllers.launch.py"
+                "display.launch.py"
             )
         )
     )
 
-    control_nodes = IncludeLaunchDescription(
+    controllers_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(
+                get_package_share_directory("description"),
+                "launch",
+                "ros2_controllers.launch.py"
+            )
+        )
+    )
+
+    control_nodes_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(
                 get_package_share_directory("control"),
@@ -53,25 +62,10 @@ def generate_launch_description():
         )
     )
 
-    rviz = Node(
-        package="rviz2",
-        executable="rviz2",
-        arguments=[
-            "-d",
-            os.path.join(
-                get_package_share_directory("description"),
-                "rviz",
-                "display.rviz"
-            )
-        ],
-        output="screen",
-        parameters=[{"use_sim_time": True}],
-    )
-
     return LaunchDescription([
         world_name_arg,
-        gazebo,
-        controllers,
-        control_nodes,
-        rviz,
+        gazebo_launch,
+        display_launch,
+        controllers_launch,
+        # control_nodes_launch,
     ])
