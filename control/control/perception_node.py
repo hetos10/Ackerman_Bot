@@ -19,9 +19,7 @@ class SimpleVisionNode(Node):
 
     def __init__(self):
         super().__init__('vision_node')
-        
         self.bridge = CvBridge()
-        
         # Subscribe to camera
         self.image_subscriber = self.create_subscription(
             Image,
@@ -29,7 +27,6 @@ class SimpleVisionNode(Node):
             self.image_callback,
             10
         )
-        
         # Publish target position
         self.target_publisher = self.create_publisher(Point, '/target_info', 10)
         
@@ -51,8 +48,6 @@ class SimpleVisionNode(Node):
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             
             # For SOLID BLACK shapes on GRAY background
-            # Use threshold to get binary image
-            # Black shapes = low intensity (0-50), gray background = high intensity (150+)
             _, binary = cv2.threshold(gray, 80, 255, cv2.THRESH_BINARY_INV)
             
             # Clean up the binary image
@@ -90,34 +85,28 @@ class SimpleVisionNode(Node):
                     f"aspect_ratio={aspect_ratio:.2f}, w/h={w}/{h}"
                 )
                 
-                # KEY DETECTION: Check if it's a box (4 corners + roughly square)
+                # KEY DETECTION: Check if it's a box (4 corners)
                 if len(approx) == 4:
-
+                    
+                    # SQUARE CHECK: All 4 sides must be equal length
                     pts = approx.reshape(4, 2)
-
                     side_lengths = []
-
+                    
                     for j in range(4):
-
                         p1 = pts[j]
                         p2 = pts[(j + 1) % 4]
-
                         distance = np.linalg.norm(p1 - p2)
-
                         side_lengths.append(distance)
-
+                    
                     avg_side = np.mean(side_lengths)
-
                     side_tolerance = 0.20 * avg_side
-
-                    square_condition = all(
-                        abs(side - avg_side) < side_tolerance
-                        for side in side_lengths
-                    )
-
-                    if not square_condition:
-                        continue
-
+                    
+                    # Check if all sides are equal (within 20% tolerance)
+                    is_square = all(abs(side - avg_side) < side_tolerance for side in side_lengths)
+                    
+                    if not is_square:
+                        continue  # Not a square, skip this contour
+                    
                     if 0.6 <= aspect_ratio <= 1.4:
                         
                         # Calculate centroid

@@ -42,7 +42,7 @@ class SimpleControllerNode(Node):
 
         self.max_speed = 5.0
 
-        self.stop_area_threshold = 40000.0
+        self.stop_area_threshold = 42000.0
 
         self.min_detect_area = 1000.0
 
