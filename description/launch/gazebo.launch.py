@@ -75,7 +75,7 @@ def generate_launch_description():
             "-x",
             "0.0",
             "-y",
-            "-0.6",
+            "-0.8",
             "-z",
             "0.5"
         ],
